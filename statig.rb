@@ -32,7 +32,7 @@ class Statig < Thor
   end
 
   desc 'build', 'Build website in DIRECTORY'
-  method_options :force => :boolean
+  method_options :force => :boolean, :config => :optional
   def build(directory=Dir.pwd)
     directory = File.expand_path(directory)
     Dir.chdir(directory) do
@@ -84,7 +84,7 @@ class Statig < Thor
     end
 
     def opts
-      @opts ||= Statig.default_options.update((YAML.load_file('.statig.yml') rescue {}))
+      @opts ||= Statig.default_options.update((YAML.load_file(options[:config] || 'statig.yml') rescue {}))
     end
 
     def git_ignore_if_needed(file)
