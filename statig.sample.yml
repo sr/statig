@@ -1,0 +1,15 @@
+--- 
+:template: /home/simon/web/atonie.org/template.haml
+:deepth: 5
+:extensions: 
+- :text
+- :textile
+- :sass
+:text: !ruby/object:SerializableProc
+  block: |content| require 'bluecloth'; BlueCloth.new(content).to_html
+:textile: !ruby/object:SerializableProc
+  block: |content| require 'redcloth'; r = RedCloth.new(content); r.hard_breaks = false; r.to_html
+:sass: !ruby/object:SerializableProc 
+  block: |content| require 'sass'; Sass::Engine.new(content).render
+:excludes:
+- !ruby/regexp /2006/wiki/
