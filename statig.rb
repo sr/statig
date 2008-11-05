@@ -1,8 +1,7 @@
 %w(rubygems
 thor
 yaml
-haml/engine
-maruku/string_utils).each { |lib| require lib }
+haml/engine).each { |lib| require lib }
 
 class SerializableProc
   def initialize(block)
@@ -20,8 +19,6 @@ class SerializableProc
 end
 
 class Statig < Thor
-  include MaRuKu::Strings
-
   def self.default_options
     { :extensions => [:text, :textile],
       :text       => SerializableProc.new('|content| require "bluecloth"; BlueCloth.new(content).to_html'),
@@ -102,5 +99,17 @@ class Statig < Thor
     def git?
       `git status &> /dev/null`
       $?.exitstatus.to_i == 1
+    end
+
+    def parse_email_headers(string)
+      return {:data => string} unless string =~ /((\w[\w\s]+: .*\n)+)\n/
+      data = $'
+      headers = $1.split("\n")
+      headers.inject(:data => data) do |result, line|
+        parts = line.split(':', 2)
+        key   = parts.first.strip.downcase.to_sym
+        value = parts.last.strip
+        result.update(key => value)
+      end
     end
 end
