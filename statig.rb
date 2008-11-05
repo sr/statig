@@ -1,7 +1,6 @@
 %w(rubygems
 thor
-yaml
-haml/engine).each { |lib| require lib }
+yaml).each { |lib| require lib }
 
 class SerializableProc
   def initialize(block)
@@ -48,12 +47,13 @@ class Statig < Thor
 
   private
     def content_for(source, destination)
-      source_content = File.read(source)
-      meta_data = parse_email_headers(source_content)
-      formatted = formatter_for(source).call(meta_data[:data])
-      return formatted unless template
-      engine = Haml::Engine.new(template, :format => :html4)
-      engine.render(Object.new, meta_data.update(:data => formatted))
+      parsed = parse_email_headers(File.read(source))
+
+      if template?
+        template(parsed)
+      else
+        formatter_for(source).call(parsed[:content])
+      end
     end
 
     def formatter_for(file_name)
@@ -76,8 +76,16 @@ class Statig < Thor
       @excludes ||= Regexp.union(*(opts[:excludes] || []))
     end
 
-    def template
-      @template ||= File.exists?(opts[:template]) ? File.read(opts[:template]) : nil
+    def template(variables)
+      formatter_for(opts[:template]).call(load_template_file, variables)
+    end
+
+    def template?
+      load_template_file
+    end
+
+    def load_template_file
+      @template_content ||= File.exists?(opts[:template]) ? File.read(opts[:template]) : nil
     end
 
     def opts
@@ -102,14 +110,18 @@ class Statig < Thor
     end
 
     def parse_email_headers(string)
-      return {:data => string} unless string =~ /((\w[\w\s]+: .*\n)+)\n/
-      data = $'
-      headers = $1.split("\n")
-      headers.inject(:data => data) do |result, line|
+      parsed = {:headers => [], :content => string}
+      return parsed unless string =~ /((\w[\w\s]+: .*\n)+)\n/
+
+      parsed.update(:content => $')
+
+      headers = $1.split("\n").inject({}) do |headers, line|
         parts = line.split(':', 2)
         key   = parts.first.strip.downcase.to_sym
         value = parts.last.strip
-        result.update(key => value)
+        headers.update(key => value)
       end
+
+      parsed.update(:headers => headers)
     end
 end

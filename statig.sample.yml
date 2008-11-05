@@ -9,6 +9,8 @@
   block: |content| require 'bluecloth'; BlueCloth.new(content).to_html
 :textile: !ruby/object:SerializableProc
   block: |content| require 'redcloth'; r = RedCloth.new(content); r.hard_breaks = false; r.to_html
+:haml: !ruby/object:SerializableProc
+  block: |content, variables| require 'haml/engine'; Haml::Engine.new(content).render(Object.new, variables)
 :sass: !ruby/object:SerializableProc 
   block: |content| require 'sass'; Sass::Engine.new(content).render
 :excludes:
