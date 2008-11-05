@@ -1,6 +1,4 @@
-%w(rubygems
-thor
-yaml).each { |lib| require lib }
+require 'yaml'
 
 class SerializableProc
   def initialize(block)
@@ -22,11 +20,13 @@ class Statig < Thor
   method_options :force => :boolean, :config => :optional
   def build(directory=Dir.pwd)
     directory = File.expand_path(directory)
+
     Dir.chdir(directory) do
       abort('needs to be run inside of a git working directory') unless git?
+
       files_list.each do |source|
         destination = source.sub(File.extname(source), '.html')
-        next if !need_update?(source, destination) && !options[:force]
+        next if !needs_update?(source, destination) && !options[:force]
         puts "#{source} -> #{destination}"
         File.open(destination, 'w') do |file|
           file << content_for(source, destination)
@@ -37,8 +37,12 @@ class Statig < Thor
   end
 
   private
+    def needs_update?(source, destination)
+      !File.exists?(destination) || File.mtime(source) > File.mtime(destination)
+    end
+
     def content_for(source, destination)
-      parsed = parse_email_headers(File.read(source))
+      parsed = parse_meta_data(File.read(source))
 
       if template?
         template(parsed)
@@ -51,20 +55,16 @@ class Statig < Thor
       config[File.extname(file_name)[1..-1].to_sym]
     end
 
-    def need_update?(source, destination)
-      !File.exists?(destination) || File.mtime(source) > File.mtime(destination)
-    end
-
     def files_list
-      @files ||= Dir[glob].reject { |file| file =~ excludes }
+      Dir[glob].reject { |file| file =~ excludes }
     end
 
     def glob
-      @glob ||= "#{'**/' * config[:deepth]}*.{#{config[:extensions].map(&:to_s).join(',')}}"
+      "#{'**/' * config[:deepth]}*.{#{config[:extensions].map(&:to_s).join(',')}}"
     end
 
     def excludes
-      @excludes ||= Regexp.union(*(config[:excludes] || []))
+      Regexp.union(*(config[:excludes] || []))
     end
 
     def template(variables)
@@ -76,15 +76,39 @@ class Statig < Thor
     end
 
     def load_template_file
-      @template_content ||= File.exists?(config[:template]) ? File.read(config[:template]) : nil
+      @template_content ||= begin
+        File.read(config[:template])
+      rescue Errno::ENOENT
+        nil
+      end
     end
 
     def config
       @config = begin
         YAML.load_file(options[:config] || 'statig.yml')
       rescue Errno::ENOENT
-        {}
+        abort "Couldn't load configuration file"
       end
+    end
+
+    def parse_meta_data(string)
+      parsed = {:meta_data => [], :content => string}
+      return parsed unless string =~ /((\w[\w\s]+: .*\n)+)\n/
+
+      parsed.update(:content => $')
+      meta_data = $1.split("\n").inject({}) do |meta_data, line|
+        parts = line.split(':', 2)
+        key   = parts.first.strip.downcase.to_sym
+        value = parts.last.strip
+        meta_data.update(key => value)
+      end
+
+      parsed.update(:meta_data => meta_data)
+    end
+
+    def git?
+      `git status &> /dev/null`
+      $?.exitstatus.to_i == 1
     end
 
     def git_ignore_if_needed(file)
@@ -97,26 +121,5 @@ class Statig < Thor
     def git_ignored?(file)
       return false unless File.exists?('.gitignore')
       File.readlines('.gitignore').map(&:chomp).include?(file)
-    end
-
-    def git?
-      `git status &> /dev/null`
-      $?.exitstatus.to_i == 1
-    end
-
-    def parse_email_headers(string)
-      parsed = {:headers => [], :content => string}
-      return parsed unless string =~ /((\w[\w\s]+: .*\n)+)\n/
-
-      parsed.update(:content => $')
-
-      headers = $1.split("\n").inject({}) do |headers, line|
-        parts = line.split(':', 2)
-        key   = parts.first.strip.downcase.to_sym
-        value = parts.last.strip
-        headers.update(key => value)
-      end
-
-      parsed.update(:headers => headers)
     end
 end
