@@ -18,15 +18,6 @@ class SerializableProc
 end
 
 class Statig < Thor
-  def self.default_options
-    { :extensions => [:text, :textile],
-      :text       => SerializableProc.new('|content| require "bluecloth"; BlueCloth.new(content).to_html'),
-      :textile    => SerializableProc.new('|content| require "redcloth"; RedCloth.new(content).to_html'),
-      :deepth     => 2,
-      :template   => 'template.haml'
-    }
-  end
-
   desc 'build', 'Build website in DIRECTORY'
   method_options :force => :boolean, :config => :optional
   def build(directory=Dir.pwd)
@@ -57,7 +48,7 @@ class Statig < Thor
     end
 
     def formatter_for(file_name)
-      opts[File.extname(file_name)[1..-1].to_sym]
+      config[File.extname(file_name)[1..-1].to_sym]
     end
 
     def need_update?(source, destination)
@@ -69,15 +60,15 @@ class Statig < Thor
     end
 
     def glob
-      @glob ||= "#{'**/' * opts[:deepth]}*.{#{opts[:extensions].map(&:to_s).join(',')}}"
+      @glob ||= "#{'**/' * config[:deepth]}*.{#{config[:extensions].map(&:to_s).join(',')}}"
     end
 
     def excludes
-      @excludes ||= Regexp.union(*(opts[:excludes] || []))
+      @excludes ||= Regexp.union(*(config[:excludes] || []))
     end
 
     def template(variables)
-      formatter_for(opts[:template]).call(load_template_file, variables)
+      formatter_for(config[:template]).call(load_template_file, variables)
     end
 
     def template?
@@ -85,11 +76,15 @@ class Statig < Thor
     end
 
     def load_template_file
-      @template_content ||= File.exists?(opts[:template]) ? File.read(opts[:template]) : nil
+      @template_content ||= File.exists?(config[:template]) ? File.read(config[:template]) : nil
     end
 
-    def opts
-      @opts ||= Statig.default_options.update((YAML.load_file(options[:config] || 'statig.yml') rescue {}))
+    def config
+      @config = begin
+        YAML.load_file(options[:config] || 'statig.yml')
+      rescue Errno::ENOENT
+        {}
+      end
     end
 
     def git_ignore_if_needed(file)
