@@ -1,5 +1,5 @@
 --- 
-:template: /home/simon/web/atonie.org/template.haml
+:template: template.haml
 :deepth: 5
 :extensions: 
 - :text

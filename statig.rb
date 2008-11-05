@@ -77,7 +77,7 @@ class Statig < Thor
 
     def load_template_file
       @template_content ||= begin
-        File.read(config[:template])
+        File.read(File.join(options[:directory], config[:template]))
       rescue Errno::ENOENT
         nil
       end
