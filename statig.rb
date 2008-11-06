@@ -56,15 +56,12 @@ class Statig < Thor
     end
 
     def files_list
-      Dir[glob].reject { |file| file =~ excludes }
+      `git ls-files`.split("\n").select { |file_name| include?(file_name) }
     end
 
-    def glob
-      "#{'**/' * config[:deepth]}*.{#{config[:extensions].map(&:to_s).join(',')}}"
-    end
-
-    def excludes
-      Regexp.union(*(config[:excludes] || []))
+    def include?(file_name)
+      file_name !~ Regexp.union(*(config[:excludes] || [])) &&
+        config[:extensions].map(&:to_s).include?(File.extname(file_name)[1..-1])
     end
 
     def template(variables)

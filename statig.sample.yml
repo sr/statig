@@ -1,6 +1,5 @@
 --- 
 :template: template.haml
-:deepth: 5
 :extensions: 
 - :text
 - :textile
