@@ -19,9 +19,9 @@ class Statig < Thor
   desc 'build', 'Build website in DIRECTORY'
   method_options :force => :boolean, :config => :optional
   def build(directory=Dir.pwd)
-    directory = File.expand_path(directory)
+    @directory = File.expand_path(directory)
 
-    Dir.chdir(directory) do
+    Dir.chdir(@directory) do
       abort('needs to be run inside of a git working directory') unless git?
 
       files_list.each do |source|
@@ -42,12 +42,13 @@ class Statig < Thor
     end
 
     def content_for(source, destination)
-      parsed = parse_meta_data(File.read(source))
+      parsed  = parse_meta_data(File.read(source))
+      content = formatter_for(source).call(parsed[:content])
 
       if template?
-        template(parsed)
+        template(parsed.update(:content => content))
       else
-        formatter_for(source).call(parsed[:content])
+        content
       end
     end
 
@@ -74,7 +75,7 @@ class Statig < Thor
 
     def load_template_file
       @template_content ||= begin
-        File.read(File.join(options[:directory], config[:template]))
+        File.read(File.join(@directory, config[:template]))
       rescue Errno::ENOENT
         nil
       end
